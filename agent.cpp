@@ -1,6 +1,24 @@
 #include "agent.h"
-
 #include <stdio.h>
+
+/*
+ * Copyright (c) 2014 Benjamin C. Herd.
+ *
+ * This file is part of MC2MABS.
+ *
+ * MC2MABS is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+
+ * MC2MABS is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+
+ * You should have received a copy of the GNU General Public License
+ * along with MC2MABS. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 using namespace std;
 using namespace boost;
@@ -9,17 +27,13 @@ using namespace boost;
 // AGENT FUNCTIONS
 ///////////////////////////////////////////////////////////////////////
 
-// agent constructor
 Agent::Agent(size_t id, shared_ptr<Environment> _env)
 :	env(_env)
 {
 	m_Id = id;
 }
 
-// agent destructor
-Agent::~Agent()
-{
-}
+Agent::~Agent() {}
 
 AState Agent::getCState() const
 {
@@ -95,9 +109,9 @@ void Agent::turn(double deg)
 	printf("Velocity.lenSq() (before): %f\n", velocity.lenSq());
 
 	double rx = (velocity.getX() * cos(rad)) - (velocity.getY() * sin(rad));
-  double ry = (velocity.getX() * sin(rad)) + (velocity.getY() * cos(rad));
-  velocity.setX(rx);
-  velocity.setY(ry);
+	double ry = (velocity.getX() * sin(rad)) + (velocity.getY() * cos(rad));
+	velocity.setX(rx);
+	velocity.setY(ry);
 
 	//double tY = velocity.getY()-pos.getY();
 	//double tX = velocity.getX()-pos.getX();
@@ -117,7 +131,6 @@ P2D Agent::lookAhead(float f) const
 	P2D newPos = pos + velocity.getScaled(f);
 	return newPos;
 }
-
 
 ///////////////////////////////////////////////////////////////////////
 // ENVIRONMENT FUNCTIONS

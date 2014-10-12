@@ -1,3 +1,22 @@
+/*
+ * Copyright (c) 2014 Benjamin C. Herd.
+ *
+ * This file is part of MC2MABS.
+ *
+ * MC2MABS is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+
+ * MC2MABS is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+
+ * You should have received a copy of the GNU General Public License
+ * along with MC2MABS. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "abs.h"
 #include "agent.h"
 
@@ -18,7 +37,7 @@ using namespace boost;
 vector<Agent> population;
 shared_ptr<Environment> env(new Environment());
 
-GLH glh;
+GT glh;
 
 bool glhWritten=false;
 int seed=0;
@@ -179,7 +198,7 @@ void postConf(int idx)
 	_postConf(idx);
 }
 
-GLH run()
+GT run()
 {
    for(size_t t=0;t<getNumTicks();t++)
    {
@@ -189,7 +208,7 @@ GLH run()
    return glh;
 }
 
-void writeGLHToFile(size_t run)
+void writeGTToFile(size_t run)
 {
 	if(glhWritten)
 		return;
