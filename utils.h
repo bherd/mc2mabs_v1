@@ -25,7 +25,7 @@
  * \author Benjamin C. Herd
  * \date 10/2014
  * \copyright GNU Public License (GPL)
- *
+ */
 class V2D
 {
 public:

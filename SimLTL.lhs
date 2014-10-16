@@ -1,19 +1,43 @@
+%/*
+% * Copyright (c) 2014 Benjamin C. Herd.
+% *
+% * This file is part of MC2MABS.
+% *
+% * MC2MABS is free software: you can redistribute it and/or modify
+% * it under the terms of the GNU General Public License as published by
+% * the Free Software Foundation, either version 3 of the License, or
+% * (at your option) any later version.
+%
+% * MC2MABS is distributed in the hope that it will be useful,
+% * but WITHOUT ANY WARRANTY; without even the implied warranty of
+% * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% * GNU General Public License for more details.
+%
+% * You should have received a copy of the GNU General Public License
+% * along with MC2MABS. If not, see <http://www.gnu.org/licenses/>.
+% */
+
+\section{SimLTL.lhs}
+
+This file defines the grammar of simLTL, together with transformation (simplification + translation into positive normal form) and pretty printing functions,
+as well as additional data structures used throughout the verification process.
+
 > module SimLTL where
 > import Debug.Trace
 
-**** 1.1 Agent level **************************************************
+\subsection{Agent level}
 
 An agent value: either an integer, numeric function, the value of a stored variable or an assignment:
 
-> data AVal = ANumVal Int 
->    | AAttribute Int
->    | ANumFunc Int
->    | AAsg String AVal
->    | AVar String
->    | APlus AVal AVal
->    | AMinus AVal AVal
->    | ATimes AVal AVal
->  deriving (Read, Eq)
+> data AVal =  ANumVal Int 
+>              | AAttribute Int
+>              | ANumFunc Int
+>              | AAsg String AVal
+>              | AVar String
+>              | APlus AVal AVal
+>              | AMinus AVal AVal
+>              | ATimes AVal AVal
+>              deriving (Read, Eq)
 
 > instance Show AVal where
 >   show v = ppAVal v
@@ -32,7 +56,7 @@ An agent formula:
 > instance Show ALTL where
 >   show v = ppALTL v
 
-*** 1.2 Group level ***************************************************
+\subsection{Group level}
 
 A group value: either an integer, numeric function, the value of a stored variable or an assignment:
 
@@ -75,66 +99,72 @@ or a conjunction of agent obligations:
 >     deriving (Eq, Show)
 
 
-************************************************************************
+\subsection{Transformations}
 
-**** TRANSFORMATIONS ***************************************************
-
-Simplification (exploit equality laws)
-TODO: - extend (http://www.tjhsst.edu/~rlatimer/ai/Logic/logicTable/node1.html)
-      - make more elegant (terrible mess)
+Simplification (exploit equality laws)\\
+- extend (http://www.tjhsst.edu/~rlatimer/ai/Logic/logicTable/node1.html)\\
+- make more elegant (terrible mess)
 
 > simplifyA :: ALTL -> ALTL
-> simplifyA f = case f of 
->                (AAnd ATrue f)             -> f -- ? 
->                (AAnd f ATrue)             -> f -- ?
->                (AAnd f1 (AOr f2 f3))      -> if f1==f2 then f1 else f -- absorption
->                (AAnd f1 (AAnd f2 f3))     -> if f1==f2 then simplifyA (AAnd f1 f3) else if f1==f3 then simplifyA (AAnd f1 f2) else f
->                (AAnd f1 f2)               -> if f1==f2 then f1 else f -- idempotence
->                (AOr ATrue f)              -> ATrue -- ? 
->                (AOr f ATrue)              -> ATrue -- ?
->                (AOr f1 (AAnd f2 f3))      -> if f1==f2 then f1 else f -- absorption 
->                (AOr f1 (AOr f2 f3))       -> if f1==f2 then simplifyA (AOr f1 f3) else if f1==f3 then simplifyA (AOr f1 f2) else f
->                (AOr f1 f2)                -> if f1==f2 then f1 else f -- idempotence
->                (AUntil f1 (AUntil f2 f3)) -> if f1==f2 then AUntil f1 f3 else f -- idempotence 
->                (AUntil (AUntil f1 f2) f3) -> if f2==f3 then AUntil f1 f3 else f -- idempotence 
->                otherwise                  -> f 
+> simplifyA f =  case f of 
+>                  (AAnd ATrue f)              ->  f -- ? 
+>                  (AAnd f ATrue)              ->  f -- ?
+>                  (AAnd f1 (AOr f2 f3))       ->  if f1==f2 then f1 else f -- absorption
+>                  (AAnd f1 (AAnd f2 f3))      ->  if f1==f2 then simplifyA (AAnd f1 f3) 
+>                                                  else  if f1==f3 then simplifyA (AAnd f1 f2) 
+>                                                        else f
+>                  (AAnd f1 f2)                ->  if f1==f2 then f1 else f -- idempotence
+>                  (AOr ATrue f)               ->  ATrue -- ? 
+>                  (AOr f ATrue)               ->  ATrue -- ?
+>                  (AOr f1 (AAnd f2 f3))       ->  if f1==f2 then f1 else f -- absorption 
+>                  (AOr f1 (AOr f2 f3))        ->  if f1==f2 then simplifyA (AOr f1 f3) 
+>                                                  else  if f1==f3 then simplifyA (AOr f1 f2) 
+>                                                        else f
+>                  (AOr f1 f2)                 ->  if f1==f2 then f1 else f -- idempotence
+>                  (AUntil f1 (AUntil f2 f3))  ->  if f1==f2 then AUntil f1 f3 else f -- idempotence 
+>                  (AUntil (AUntil f1 f2) f3)  ->  if f2==f3 then AUntil f1 f3 else f -- idempotence 
+>                  otherwise                   ->  f 
 
 > simplifyG :: GLTL -> GLTL
-> simplifyG f = case f of 
->                (GAnd f1 (GOr f2 f3))      -> if f1==f2 then f1 else f -- absorption
->                (GAnd f1 (GAnd f2 f3))     -> if f1==f2 then simplifyG (GAnd f1 f3) else if f1==f3 then simplifyG (GAnd f1 f2) else f
->                (GAnd f1 f2)               -> if f1==f2 then f1 else f -- idempotence
->                (GOr (GForall GTrue) f)    -> f
->                (GOr f1 (GAnd f2 f3))      -> if f1==f2 then f1 else f -- absorption 
->                (GOr f1 (GOr f2 f3))       -> if f1==f2 then simplifyG (GOr f1 f3) else if f1==f3 then simplifyG (GOr f1 f2) else f
->                (GOr f1 f2)                -> if f1==f2 then f1 else f -- idempotence
->                (GUntil f1 (GUntil f2 f3)) -> if f1==f2 then GUntil f1 f2 else f -- idempotence 
->                (GUntil (GUntil f1 f2) f3) -> if f2==f3 then GUntil f1 f2 else f -- idempotence 
->                (GExist _ GTrue)           -> GTrue -- TODO: correct??
->                otherwise                  -> f 
+> simplifyG f =  case f of 
+>                  (GAnd f1 (GOr f2 f3))       ->  if f1==f2 then f1 else f -- absorption
+>                  (GAnd f1 (GAnd f2 f3))      ->  if f1==f2 then simplifyG (GAnd f1 f3) 
+>                                                  else  if f1==f3 then simplifyG (GAnd f1 f2) 
+>                                                        else f
+>                  (GAnd f1 f2)                ->  if f1==f2 then f1 else f -- idempotence
+>                  (GOr (GForall GTrue) f)     ->  f
+>                  (GOr f1 (GAnd f2 f3))       ->  if f1==f2 then f1 else f -- absorption 
+>                  (GOr f1 (GOr f2 f3))        ->  if f1==f2 then simplifyG (GOr f1 f3) 
+>                                                  else  if f1==f3 then simplifyG (GOr f1 f2) 
+>                                                        else f
+>                  (GOr f1 f2)                 ->  if f1==f2 then f1 else f -- idempotence
+>                  (GUntil f1 (GUntil f2 f3))  ->  if f1==f2 then GUntil f1 f2 else f -- idempotence 
+>                  (GUntil (GUntil f1 f2) f3)  ->  if f2==f3 then GUntil f1 f2 else f -- idempotence 
+>                  (GExist _ GTrue)            ->  GTrue -- TODO: correct??
+>                  otherwise                   ->  f 
 
 Transformation of ALTL into (release) positive normal form (PNF):
 
 > altlToPNF :: ALTL -> ALTL
-> altlToPNF (AAnd f1 f2)       = simplifyA $ AAnd (altlToPNF f1) (altlToPNF f2)
-> altlToPNF (AOr f1 f2)        = simplifyA $ AOr (altlToPNF f1) (altlToPNF f2)
-> altlToPNF (AWUntil f1 f2)    = simplifyA $ altlToPNF $ AOr (AUntil (altlToPNF f1) (altlToPNF f2)) $ AGlobally f1
-> altlToPNF (AUntil f1 f2)     = simplifyA $ AUntil (altlToPNF f1) (altlToPNF f2)
-> altlToPNF (ATransInto f1 f2) = simplifyA $ altlToPNF $ AWUntil (ANot f2) f1
-> altlToPNF (AImpl f1 f2)      = simplifyA $ altlToPNF $ AOr (ANot f1) f2
-> altlToPNF (AEquiv f1 f2)     = simplifyA $ altlToPNF $ AAnd (AImpl f1 f2) (AImpl f2 f1)
-> altlToPNF (ARelease f1 f2)   = simplifyA $ ARelease (altlToPNF f1) (altlToPNF f2)
-> altlToPNF (AGlobally f)      = simplifyA $ AGlobally (altlToPNF f)
-> altlToPNF (AFinally f)       = simplifyA $ AFinally (altlToPNF f)
-> altlToPNF (ANext f)          = ANext (altlToPNF f)
-> altlToPNF (ASNext f)         = ASNext (altlToPNF f)
-> altlToPNF (AEq v1 v2)        = AEq v1 v2
-> altlToPNF (ANEq v1 v2)       = ANEq v1 v2
-> altlToPNF (ALt v1 v2)        = ALt v1 v2
-> altlToPNF (ALEq v1 v2)       = ALEq v1 v2
-> altlToPNF (AGt v1 v2)        = AGt v1 v2
-> altlToPNF (AGEq v1 v2)       = AGEq v1 v2
-> altlToPNF (ANot f)           = case f of
+> altlToPNF (AAnd f1 f2)        = simplifyA $ AAnd (altlToPNF f1) (altlToPNF f2)
+> altlToPNF (AOr f1 f2)         = simplifyA $ AOr (altlToPNF f1) (altlToPNF f2)
+> altlToPNF (AWUntil f1 f2)     = simplifyA $ altlToPNF $ AOr (AUntil (altlToPNF f1) (altlToPNF f2)) $ AGlobally f1
+> altlToPNF (AUntil f1 f2)      = simplifyA $ AUntil (altlToPNF f1) (altlToPNF f2)
+> altlToPNF (ATransInto f1 f2)  = simplifyA $ altlToPNF $ AWUntil (ANot f2) f1
+> altlToPNF (AImpl f1 f2)       = simplifyA $ altlToPNF $ AOr (ANot f1) f2
+> altlToPNF (AEquiv f1 f2)      = simplifyA $ altlToPNF $ AAnd (AImpl f1 f2) (AImpl f2 f1)
+> altlToPNF (ARelease f1 f2)    = simplifyA $ ARelease (altlToPNF f1) (altlToPNF f2)
+> altlToPNF (AGlobally f)       = simplifyA $ AGlobally (altlToPNF f)
+> altlToPNF (AFinally f)        = simplifyA $ AFinally (altlToPNF f)
+> altlToPNF (ANext f)           = ANext (altlToPNF f)
+> altlToPNF (ASNext f)          = ASNext (altlToPNF f)
+> altlToPNF (AEq v1 v2)         = AEq v1 v2
+> altlToPNF (ANEq v1 v2)        = ANEq v1 v2
+> altlToPNF (ALt v1 v2)         = ALt v1 v2
+> altlToPNF (ALEq v1 v2)        = ALEq v1 v2
+> altlToPNF (AGt v1 v2)         = AGt v1 v2
+> altlToPNF (AGEq v1 v2)        = AGEq v1 v2
+> altlToPNF (ANot f)            = case f of
 >     ATrue             -> AFalse
 >     AFalse            -> ATrue
 >     AAtom s           -> ANot $ AAtom s -- remains unchanged
@@ -169,32 +199,30 @@ Conjunction of ALTL formulae:
 
 Transformation of GLTL into (release) positive normal form (PNF):
 
-*******************************************************************************
-
 > gltlToPNF :: GLTL -> GLTL
-> gltlToPNF GTrue              = GTrue
-> gltlToPNF GFalse             = GFalse
-> gltlToPNF (GAtom s)          = GAtom s
-> gltlToPNF (GALTL f)          = GALTL $ altlToPNF f
-> gltlToPNF (GAnd f1 f2)       = simplifyG $ GAnd (gltlToPNF f1) (gltlToPNF f2)
-> gltlToPNF (GOr f1 f2)        = simplifyG $ GOr (gltlToPNF f1) (gltlToPNF f2)
-> gltlToPNF (GImpl f1 f2)      = simplifyG $ gltlToPNF $ GOr (GNot f1) f2
-> gltlToPNF (GEquiv f1 f2)     = simplifyG $ gltlToPNF $ GAnd (GImpl f1 f2) (GImpl f2 f1)
-> gltlToPNF (GRelease f1 f2)   = simplifyG $ GRelease (gltlToPNF f1) (gltlToPNF f2)
-> gltlToPNF (GGlobally f)      = simplifyG $ GGlobally (gltlToPNF f)
-> gltlToPNF (GFinally f)       = simplifyG $ GFinally (gltlToPNF f)
-> gltlToPNF (GUntil f1 f2)     = simplifyG $ GUntil (gltlToPNF f1) (gltlToPNF f2)
-> gltlToPNF (GWUntil f1 f2)    = simplifyG $ gltlToPNF $ GOr (GUntil (gltlToPNF f1) (gltlToPNF f2)) $ GGlobally f1
-> gltlToPNF (GTransInto f1 f2) = simplifyG $ gltlToPNF $ GWUntil (GNot f2) f1
-> gltlToPNF (GNext f)          = GNext $ gltlToPNF f
-> gltlToPNF (GSNext f)         = GSNext $ gltlToPNF f
-> gltlToPNF (GForall f)        = GForall $ gltlToPNF f
-> gltlToPNF (GExist i f)       = GExist i $ gltlToPNF f
-> gltlToPNF (GEq v1 v2)        = GEq v1 v2
-> gltlToPNF (GNEq v1 v2)       = GNEq v1 v2
-> gltlToPNF (GLt v1 v2)        = GLt v1 v2
-> gltlToPNF (GGt v1 v2)        = GGt v1 v2
-> gltlToPNF (GNot f)           = case f of
+> gltlToPNF GTrue               = GTrue
+> gltlToPNF GFalse              = GFalse
+> gltlToPNF (GAtom s)           = GAtom s
+> gltlToPNF (GALTL f)           = GALTL $ altlToPNF f
+> gltlToPNF (GAnd f1 f2)        = simplifyG $ GAnd (gltlToPNF f1) (gltlToPNF f2)
+> gltlToPNF (GOr f1 f2)         = simplifyG $ GOr (gltlToPNF f1) (gltlToPNF f2)
+> gltlToPNF (GImpl f1 f2)       = simplifyG $ gltlToPNF $ GOr (GNot f1) f2
+> gltlToPNF (GEquiv f1 f2)      = simplifyG $ gltlToPNF $ GAnd (GImpl f1 f2) (GImpl f2 f1)
+> gltlToPNF (GRelease f1 f2)    = simplifyG $ GRelease (gltlToPNF f1) (gltlToPNF f2)
+> gltlToPNF (GGlobally f)       = simplifyG $ GGlobally (gltlToPNF f)
+> gltlToPNF (GFinally f)        = simplifyG $ GFinally (gltlToPNF f)
+> gltlToPNF (GUntil f1 f2)      = simplifyG $ GUntil (gltlToPNF f1) (gltlToPNF f2)
+> gltlToPNF (GWUntil f1 f2)     = simplifyG $ gltlToPNF $ GOr (GUntil (gltlToPNF f1) (gltlToPNF f2)) $ GGlobally f1
+> gltlToPNF (GTransInto f1 f2)  = simplifyG $ gltlToPNF $ GWUntil (GNot f2) f1
+> gltlToPNF (GNext f)           = GNext $ gltlToPNF f
+> gltlToPNF (GSNext f)          = GSNext $ gltlToPNF f
+> gltlToPNF (GForall f)         = GForall $ gltlToPNF f
+> gltlToPNF (GExist i f)        = GExist i $ gltlToPNF f
+> gltlToPNF (GEq v1 v2)         = GEq v1 v2
+> gltlToPNF (GNEq v1 v2)        = GNEq v1 v2
+> gltlToPNF (GLt v1 v2)         = GLt v1 v2
+> gltlToPNF (GGt v1 v2)         = GGt v1 v2
+> gltlToPNF (GNot f)            = case f of
 >     GTrue             -> GFalse
 >     GFalse            -> GTrue
 >     GAtom s           -> GNot $ GAtom s -- remains unchanged
@@ -227,96 +255,84 @@ Examples:
 let a = GNot (GGlobally (GOr (GUntil (GAtom "a") (GAtom "b") ) (GNext (GAtom "c")) ))
 let a = GNot (GExist 100 (ANot (AUntil (AAtom "a") (AAtom "b"))))
 
-******************************************************************
-
-***** PRETTY PRINTING ********************************************
+\subsection{Pretty printing}
 
 For agent values:
 
 > ppAVal :: AVal -> String
-> ppAVal (ANumVal i)    = show i
-> ppAVal (AAttribute s) = "att(" ++ show s ++ ")"
-> ppAVal (ANumFunc s)   = show s ++ "()"
-> ppAVal (AAsg k v)     = "(" ++ show k ++ ":=" ++ ppAVal v ++ ")"
-> ppAVal (AVar k)       = show k ++ "?"
-> ppAVal (APlus v1 v2)  = "(" ++ ppAVal v1 ++ " + " ++ ppAVal v2 ++ ")"
-> ppAVal (AMinus v1 v2) = "(" ++ ppAVal v1 ++ " - " ++ ppAVal v2 ++ ")"
-> ppAVal (ATimes v1 v2) = "(" ++ ppAVal v1 ++ " * " ++ ppAVal v2 ++ ")"
+> ppAVal (ANumVal i)     = show i
+> ppAVal (AAttribute s)  = "att(" ++ show s ++ ")"
+> ppAVal (ANumFunc s)    = show s ++ "()"
+> ppAVal (AAsg k v)      = "(" ++ show k ++ ":=" ++ ppAVal v ++ ")"
+> ppAVal (AVar k)        = show k ++ "?"
+> ppAVal (APlus v1 v2)   = "(" ++ ppAVal v1 ++ " + " ++ ppAVal v2 ++ ")"
+> ppAVal (AMinus v1 v2)  = "(" ++ ppAVal v1 ++ " - " ++ ppAVal v2 ++ ")"
+> ppAVal (ATimes v1 v2)  = "(" ++ ppAVal v1 ++ " * " ++ ppAVal v2 ++ ")"
 
 For group values:
 
 > ppGVal :: GVal -> String
-> ppGVal (GNumVal i)      = show i
-> ppGVal (GNumFunc s)   = show s ++ "()"
-> ppGVal (GAsg k v)     = "(" ++ show k ++ ":=" ++ ppGVal v ++ ")"
-> ppGVal (GVar k)       = show k ++ "?"
-> ppGVal (GPlus v1 v2)  = "(" ++ ppGVal v1 ++ " + " ++ ppGVal v2 ++ ")"
-> ppGVal (GMinus v1 v2) = "(" ++ ppGVal v1 ++ " - " ++ ppGVal v2 ++ ")"
-> ppGVal (GTimes v1 v2) = "(" ++ ppGVal v1 ++ " * " ++ ppGVal v2 ++ ")"
+> ppGVal (GNumVal i)     = show i
+> ppGVal (GNumFunc s)    = show s ++ "()"
+> ppGVal (GAsg k v)      = "(" ++ show k ++ ":=" ++ ppGVal v ++ ")"
+> ppGVal (GVar k)        = show k ++ "?"
+> ppGVal (GPlus v1 v2)   = "(" ++ ppGVal v1 ++ " + " ++ ppGVal v2 ++ ")"
+> ppGVal (GMinus v1 v2)  = "(" ++ ppGVal v1 ++ " - " ++ ppGVal v2 ++ ")"
+> ppGVal (GTimes v1 v2)  = "(" ++ ppGVal v1 ++ " * " ++ ppGVal v2 ++ ")"
 
 For agent formulae:
 
 > ppALTL :: ALTL -> String
-> ppALTL (AAtom s)        = show s
-> ppALTL ATrue            = "True"
-> ppALTL AFalse           = "False"
-> ppALTL ALast            = "Last"
-> ppALTL (ANot f)         = "!" ++ ppALTL f
-> ppALTL (AAnd f1 f2)     = "(" ++ ppALTL f1 ++ " && " ++ ppALTL f2 ++ ")"
-> ppALTL (AOr f1 f2)      = "(" ++ ppALTL f1 ++ " || " ++ ppALTL f2 ++ ")"
-> ppALTL (AImpl f1 f2)    = "(" ++ ppALTL f1 ++ " -> " ++ ppALTL f2 ++ ")"
-> ppALTL (AFinally f)     = "F " ++ ppALTL f
-> ppALTL (AGlobally f)    = "G " ++ ppALTL f
-> ppALTL (ANext f)        = "X " ++ ppALTL f
-> ppALTL (ASNext f)       = "X! " ++ ppALTL f
-> ppALTL (AUntil f1 f2)   = "(" ++ ppALTL f1 ++ " U " ++ ppALTL f2 ++ ")"
-> ppALTL (ARelease f1 f2) = "(" ++ ppALTL f1 ++ " R " ++ ppALTL f2 ++ ")"
-> ppALTL (AVal v)         = ppAVal v
-> ppALTL (AEq v1 v2)      = "(" ++ ppAVal v1 ++ " == " ++ ppAVal v2 ++ ")"
-> ppALTL (ANEq v1 v2)     = "(" ++ ppAVal v1 ++ " != " ++ ppAVal v2 ++ ")"
-> ppALTL (AAEq d v1 v2)   = "(" ++ ppAVal v1 ++ " ~ " ++ ppAVal v2 ++ ")"
-> ppALTL (ANAEq d v1 v2)  = "(" ++ ppAVal v1 ++ " !~ " ++ ppAVal v2 ++ ")"
-> ppALTL (AGt v1 v2)      = "(" ++ ppAVal v1 ++ " > " ++ ppAVal v2 ++ ")"
-> ppALTL (AGEq v1 v2)     = "(" ++ ppAVal v1 ++ " >= " ++ ppAVal v2 ++ ")"
-> ppALTL (ALt v1 v2)      = "(" ++ ppAVal v1 ++ " < " ++ ppAVal v2 ++ ")"
-> ppALTL (ALEq v1 v2)     = "(" ++ ppAVal v1 ++ " <= " ++ ppAVal v2 ++ ")"
+> ppALTL (AAtom s)         = show s
+> ppALTL ATrue             = "True"
+> ppALTL AFalse            = "False"
+> ppALTL ALast             = "Last"
+> ppALTL (ANot f)          = "!" ++ ppALTL f
+> ppALTL (AAnd f1 f2)      = "(" ++ ppALTL f1 ++ " && " ++ ppALTL f2 ++ ")"
+> ppALTL (AOr f1 f2)       = "(" ++ ppALTL f1 ++ " || " ++ ppALTL f2 ++ ")"
+> ppALTL (AImpl f1 f2)     = "(" ++ ppALTL f1 ++ " -> " ++ ppALTL f2 ++ ")"
+> ppALTL (AFinally f)      = "F " ++ ppALTL f
+> ppALTL (AGlobally f)     = "G " ++ ppALTL f
+> ppALTL (ANext f)         = "X " ++ ppALTL f
+> ppALTL (ASNext f)        = "X! " ++ ppALTL f
+> ppALTL (AUntil f1 f2)    = "(" ++ ppALTL f1 ++ " U " ++ ppALTL f2 ++ ")"
+> ppALTL (ARelease f1 f2)  = "(" ++ ppALTL f1 ++ " R " ++ ppALTL f2 ++ ")"
+> ppALTL (AVal v)          = ppAVal v
+> ppALTL (AEq v1 v2)       = "(" ++ ppAVal v1 ++ " == " ++ ppAVal v2 ++ ")"
+> ppALTL (ANEq v1 v2)      = "(" ++ ppAVal v1 ++ " != " ++ ppAVal v2 ++ ")"
+> ppALTL (AAEq d v1 v2)    = "(" ++ ppAVal v1 ++ " ~ " ++ ppAVal v2 ++ ")"
+> ppALTL (ANAEq d v1 v2)   = "(" ++ ppAVal v1 ++ " !~ " ++ ppAVal v2 ++ ")"
+> ppALTL (AGt v1 v2)       = "(" ++ ppAVal v1 ++ " > " ++ ppAVal v2 ++ ")"
+> ppALTL (AGEq v1 v2)      = "(" ++ ppAVal v1 ++ " >= " ++ ppAVal v2 ++ ")"
+> ppALTL (ALt v1 v2)       = "(" ++ ppAVal v1 ++ " < " ++ ppAVal v2 ++ ")"
+> ppALTL (ALEq v1 v2)      = "(" ++ ppAVal v1 ++ " <= " ++ ppAVal v2 ++ ")"
 
 For group formulae:
 
 > ppGLTL :: GLTL -> String
-> ppGLTL (GAtom s)        = show s
-> ppGLTL GLast            = "Last"
-> ppGLTL GTrue            = "True"
-> ppGLTL GFalse           = "False"
-> ppGLTL (GNot f)         = "!" ++ ppGLTL f
-> ppGLTL (GAnd f1 f2)     = "(" ++ ppGLTL f1 ++ " && " ++ ppGLTL f2 ++ ")"
-> ppGLTL (GOr f1 f2)      = "(" ++ ppGLTL f1 ++ " || " ++ ppGLTL f2 ++ ")"
-> ppGLTL (GImpl f1 f2)    = "(" ++ ppGLTL f1 ++ " => " ++ ppGLTL f2 ++ ")"
-> ppGLTL (GFinally f)     = "F " ++ ppGLTL f
-> ppGLTL (GGlobally f)    = "G " ++ ppGLTL f
-> ppGLTL (GNext f)        = "X! " ++ ppGLTL f
-> ppGLTL (GSNext f)       = "X " ++ ppGLTL f
-> ppGLTL (GUntil f1 f2)   = "(" ++ ppGLTL f1 ++ " U " ++ ppGLTL f2 ++ ")"
-> ppGLTL (GRelease f1 f2) = "(" ++ ppGLTL f1 ++ " R " ++ ppGLTL f2 ++ ")"
-> ppGLTL (GExist i f)     = "E[" ++ show i ++ "](" ++ ppGLTL f ++ ")"
-> ppGLTL (GForall f)      = "A(" ++ ppGLTL f ++ ")"
-> ppGLTL (GALTL f)        = ppALTL f
-> ppGLTL (GSel f1 f2)     = "<< " ++ ppALTL f1 ++ ">>" ++ ppGLTL f2 
-> ppGLTL (GEq v1 v2)      = "(" ++ ppGVal v1 ++ " == " ++ ppGVal v2 ++ ")"
-> ppGLTL (GNEq v1 v2)     = "(" ++ ppGVal v1 ++ " != " ++ ppGVal v2 ++ ")"
-> ppGLTL (GAEq d v1 v2)   = "(" ++ ppGVal v1 ++ " ~ " ++ ppGVal v2 ++ ")"
-> ppGLTL (GNAEq d v1 v2)  = "(" ++ ppGVal v1 ++ " !~ " ++ ppGVal v2 ++ ")"
-> ppGLTL (GGt v1 v2)      = "(" ++ ppGVal v1 ++ " > " ++ ppGVal v2 ++ ")"
-> ppGLTL (GGEq v1 v2)     = "(" ++ ppGVal v1 ++ " >= " ++ ppGVal v2 ++ ")"
-> ppGLTL (GLt v1 v2)      = "(" ++ ppGVal v1 ++ " < " ++ ppGVal v2 ++ ")"
-> ppGLTL (GLEq v1 v2)     = "(" ++ ppGVal v1 ++ " <= " ++ ppGVal v2 ++ ")"
-
-********************************************************************
-
-Example queries:
-
-let state1 = [("age",1)]
-let state2 = [("age",2)]
-let alh = [state1, state1, state1, state2]
-let ltl = AFinally (AEq (AAttribute "age") (ANumVal 1)) 
-checkAState alh ltl
+> ppGLTL (GAtom s)         = show s
+> ppGLTL GLast             = "Last"
+> ppGLTL GTrue             = "True"
+> ppGLTL GFalse            = "False"
+> ppGLTL (GNot f)          = "!" ++ ppGLTL f
+> ppGLTL (GAnd f1 f2)      = "(" ++ ppGLTL f1 ++ " && " ++ ppGLTL f2 ++ ")"
+> ppGLTL (GOr f1 f2)       = "(" ++ ppGLTL f1 ++ " || " ++ ppGLTL f2 ++ ")"
+> ppGLTL (GImpl f1 f2)     = "(" ++ ppGLTL f1 ++ " => " ++ ppGLTL f2 ++ ")"
+> ppGLTL (GFinally f)      = "F " ++ ppGLTL f
+> ppGLTL (GGlobally f)     = "G " ++ ppGLTL f
+> ppGLTL (GNext f)         = "X! " ++ ppGLTL f
+> ppGLTL (GSNext f)        = "X " ++ ppGLTL f
+> ppGLTL (GUntil f1 f2)    = "(" ++ ppGLTL f1 ++ " U " ++ ppGLTL f2 ++ ")"
+> ppGLTL (GRelease f1 f2)  = "(" ++ ppGLTL f1 ++ " R " ++ ppGLTL f2 ++ ")"
+> ppGLTL (GExist i f)      = "E[" ++ show i ++ "](" ++ ppGLTL f ++ ")"
+> ppGLTL (GForall f)       = "A(" ++ ppGLTL f ++ ")"
+> ppGLTL (GALTL f)         = ppALTL f
+> ppGLTL (GSel f1 f2)      = "<< " ++ ppALTL f1 ++ ">>" ++ ppGLTL f2 
+> ppGLTL (GEq v1 v2)       = "(" ++ ppGVal v1 ++ " == " ++ ppGVal v2 ++ ")"
+> ppGLTL (GNEq v1 v2)      = "(" ++ ppGVal v1 ++ " != " ++ ppGVal v2 ++ ")"
+> ppGLTL (GAEq d v1 v2)    = "(" ++ ppGVal v1 ++ " ~ " ++ ppGVal v2 ++ ")"
+> ppGLTL (GNAEq d v1 v2)   = "(" ++ ppGVal v1 ++ " !~ " ++ ppGVal v2 ++ ")"
+> ppGLTL (GGt v1 v2)       = "(" ++ ppGVal v1 ++ " > " ++ ppGVal v2 ++ ")"
+> ppGLTL (GGEq v1 v2)      = "(" ++ ppGVal v1 ++ " >= " ++ ppGVal v2 ++ ")"
+> ppGLTL (GLt v1 v2)       = "(" ++ ppGVal v1 ++ " < " ++ ppGVal v2 ++ ")"
+> ppGLTL (GLEq v1 v2)      = "(" ++ ppGVal v1 ++ " <= " ++ ppGVal v2 ++ ")"
