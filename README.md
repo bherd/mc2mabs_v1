@@ -1,4 +1,4 @@
-Introduction {#mainpage}
+Introduction
 =========
 
 MC<sup>2</sup>MABS, the Monte Carlo Model Checker for MultiAgent-Based Simulations, is tailored to the analysis of large-scale agent-based simulations. It is designed as a tool framework which incorporates the idea of statistical runtime verification, a combination of runtime verification and statistical model checking. The central characteristic of the tool is the interleaving of simulation and property evaluation. 
@@ -21,3 +21,4 @@ Communication between the simulator and the veriifier happens via a well-defined
 
 The monitor is written in Haskell. In order to avoid unnecessary computation, it is based on the idea of lazy evaluation, according to which a group state is requested from the simulator if and only if it is strictly required for verification. When requesting a group state, the underlying simulation is triggered to advance for a single step. 
 
+For more information, please refer to the MC<sup>2</sup>MABS website at http://sites.google.com/site/herdbenjamin/mc2mabs   
