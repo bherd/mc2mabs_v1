@@ -22,4 +22,5 @@ Communication between the simulator and the veriifier happens via a well-defined
 The monitor is written in Haskell. In order to avoid unnecessary computation, it is based on the idea of lazy evaluation, according to which a group state is requested from the simulator if and only if it is strictly required for verification. When requesting a group state, the underlying simulation is triggered to advance for a single step. 
 
 For more information, please refer to the MC<sup>2</sup>MABS website: 
+
 http://sites.google.com/site/herdbenjamin/mc2mabs   
